@@ -6,6 +6,7 @@ import argparse
 from dataclasses import dataclass
 from pathlib import Path
 import re
+import sys
 from typing import Iterable
 
 
@@ -107,6 +108,24 @@ def shift_cues(cues: Iterable[Cue], offset_ms: int) -> list[Cue]:
     return shifted
 
 
+def validate_cues(cues: list[Cue]) -> list[str]:
+    issues: list[str] = []
+    if not cues:
+        return ["No valid subtitle cues were found."]
+
+    previous_end = 0
+    for index, cue in enumerate(cues, start=1):
+        if cue.end_ms <= cue.start_ms:
+            issues.append(f"Cue {index}: end time must be after start time.")
+        if cue.start_ms < previous_end:
+            issues.append(f"Cue {index}: overlaps with the previous cue.")
+        if not cue.lines:
+            issues.append(f"Cue {index}: cue text is empty.")
+        previous_end = max(previous_end, cue.end_ms)
+
+    return issues
+
+
 def render_srt(cues: Iterable[Cue]) -> str:
     blocks: list[str] = []
     for index, cue in enumerate(cues, start=1):
@@ -170,6 +189,19 @@ def command_convert(args: argparse.Namespace) -> None:
     write_cues(Path(args.output), cues, args.to)
 
 
+def command_validate(args: argparse.Namespace) -> None:
+    input_path = Path(args.input)
+    cues, _source_format = load_cues(input_path)
+    issues = validate_cues(cues)
+
+    if issues:
+        for issue in issues:
+            print(f"ERROR: {issue}", file=sys.stderr)
+        raise SystemExit(1)
+
+    print(f"OK: {len(cues)} subtitle cue(s) passed validation.")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Clean, shift, and convert subtitles.")
     subparsers = parser.add_subparsers(required=True)
@@ -192,6 +224,10 @@ def build_parser() -> argparse.ArgumentParser:
     convert.add_argument("-o", "--output", required=True)
     convert.add_argument("--to", choices=("srt", "vtt"), required=True)
     convert.set_defaults(func=command_convert)
+
+    validate = subparsers.add_parser("validate", help="Validate subtitle timing.")
+    validate.add_argument("input")
+    validate.set_defaults(func=command_validate)
 
     return parser
 
