@@ -12,6 +12,7 @@ API key.
 - Shift cue timing forward or backward
 - Validate subtitle timing for overlaps and invalid ranges
 - Batch convert subtitle directories while preserving nested folders
+- Print subtitle file summaries for quick inspection
 - Clean extra whitespace and normalize subtitle numbering
 - Run as a single Python file with no third-party dependencies
 
@@ -23,6 +24,7 @@ python subtitle_lab.py shift examples/sample.srt -o shifted.srt --seconds 1.5
 python subtitle_lab.py convert examples/sample.srt -o sample.vtt --to vtt
 python subtitle_lab.py validate examples/sample.srt
 python subtitle_lab.py batch-convert examples -o converted --to vtt --recursive
+python subtitle_lab.py info examples/sample.srt --json
 ```
 
 ## Install as a CLI
@@ -33,6 +35,16 @@ subtitle-lab convert examples/sample.srt -o sample.vtt --to vtt
 ```
 
 ## Commands
+
+### Inspect subtitles
+
+```bash
+python subtitle_lab.py info input.srt
+python subtitle_lab.py info input.srt --json
+```
+
+This prints the detected format, cue count, start time, end time, and total
+timeline duration.
 
 ### Validate subtitles
 
