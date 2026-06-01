@@ -1,0 +1,19 @@
+name: Feature request
+description: Suggest a subtitle workflow or format improvement.
+title: "Feature: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: What subtitle workflow would this help?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the command, option, or output you want.
+    validations:
+      required: true
