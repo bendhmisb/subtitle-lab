@@ -22,6 +22,17 @@ Validation checks for missing cues, invalid time ranges, and overlapping cues.
 It exits with a non-zero status when issues are found, so it can be used in CI
 jobs or release checks.
 
+## Repair timing
+
+```bash
+python subtitle_lab.py repair input.srt -o repaired.srt --min-gap-ms 100
+python subtitle_lab.py repair input.vtt -o repaired.srt --to srt
+```
+
+Repair sorts cues by timestamp, moves overlapping cues after the previous cue,
+and extends invalid cues to a minimum duration. Use `--min-duration-ms` when a
+source file contains zero-length or reversed cue ranges.
+
 ## Clean a file
 
 ```bash
@@ -49,3 +60,12 @@ python subtitle_lab.py convert input.vtt -o output.srt --to srt
 ```
 
 Core conversion is local-only and does not use network services or API keys.
+
+## Batch convert a folder
+
+```bash
+python subtitle_lab.py batch-convert subtitles -o converted --to vtt --recursive
+```
+
+Batch conversion preserves nested folder names in the output directory and
+only processes `.srt` and `.vtt` files.

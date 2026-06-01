@@ -128,6 +128,35 @@ def validate_cues(cues: list[Cue]) -> list[str]:
     return issues
 
 
+def repair_cues(
+    cues: list[Cue], *, min_gap_ms: int = 0, min_duration_ms: int = 500
+) -> list[Cue]:
+    repaired: list[Cue] = []
+    previous_end = 0
+
+    for cue in sorted(cues, key=lambda item: (item.start_ms, item.end_ms)):
+        start_ms = max(0, cue.start_ms)
+        end_ms = max(0, cue.end_ms)
+
+        if repaired:
+            start_ms = max(start_ms, previous_end + max(0, min_gap_ms))
+
+        if end_ms <= start_ms:
+            end_ms = start_ms + max(1, min_duration_ms)
+
+        repaired.append(
+            Cue(
+                start_ms=start_ms,
+                end_ms=end_ms,
+                settings=cue.settings,
+                lines=list(cue.lines),
+            )
+        )
+        previous_end = end_ms
+
+    return repaired
+
+
 def summarize_cues(cues: list[Cue], source_format: str) -> dict[str, int | str]:
     if not cues:
         return {
@@ -246,6 +275,18 @@ def command_validate(args: argparse.Namespace) -> None:
     print(f"OK: {len(cues)} subtitle cue(s) passed validation.")
 
 
+def command_repair(args: argparse.Namespace) -> None:
+    input_path = Path(args.input)
+    cues, source_format = load_cues(input_path)
+    output_format = args.to or source_format
+    repaired = repair_cues(
+        cues,
+        min_gap_ms=args.min_gap_ms,
+        min_duration_ms=args.min_duration_ms,
+    )
+    write_cues(Path(args.output), repaired, output_format)
+
+
 def command_info(args: argparse.Namespace) -> None:
     input_path = Path(args.input)
     cues, source_format = load_cues(input_path)
@@ -302,6 +343,24 @@ def build_parser() -> argparse.ArgumentParser:
     validate = subparsers.add_parser("validate", help="Validate subtitle timing.")
     validate.add_argument("input")
     validate.set_defaults(func=command_validate)
+
+    repair = subparsers.add_parser("repair", help="Repair overlapping or invalid cue times.")
+    repair.add_argument("input")
+    repair.add_argument("-o", "--output", required=True)
+    repair.add_argument("--to", choices=("srt", "vtt"), help="Optional output format.")
+    repair.add_argument(
+        "--min-gap-ms",
+        type=int,
+        default=0,
+        help="Minimum gap to keep between adjacent cues.",
+    )
+    repair.add_argument(
+        "--min-duration-ms",
+        type=int,
+        default=500,
+        help="Minimum duration to use when extending invalid cues.",
+    )
+    repair.set_defaults(func=command_repair)
 
     info = subparsers.add_parser("info", help="Print subtitle file summary.")
     info.add_argument("input")

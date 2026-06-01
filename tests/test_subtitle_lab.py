@@ -5,6 +5,7 @@ from pathlib import Path
 from subtitle_lab import (
     batch_convert,
     parse_subtitles,
+    repair_cues,
     render_srt,
     render_vtt,
     shift_cues,
@@ -95,6 +96,25 @@ Second
         )
 
         self.assertEqual(validate_cues(cues), [])
+
+    def test_repair_fixes_overlap_and_invalid_duration(self):
+        cues = parse_subtitles(
+            """
+1
+00:00:01,000 --> 00:00:03,000
+First
+
+2
+00:00:02,500 --> 00:00:02,500
+Second
+"""
+        )
+
+        repaired = repair_cues(cues, min_gap_ms=100, min_duration_ms=750)
+
+        self.assertEqual(repaired[1].start_ms, 3100)
+        self.assertEqual(repaired[1].end_ms, 3850)
+        self.assertEqual(validate_cues(repaired), [])
 
     def test_batch_convert_preserves_nested_directories(self):
         with tempfile.TemporaryDirectory() as temp_dir:
