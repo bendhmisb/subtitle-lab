@@ -1,6 +1,16 @@
+import tempfile
 import unittest
+from pathlib import Path
 
-from subtitle_lab import parse_subtitles, render_srt, render_vtt, shift_cues, validate_cues
+from subtitle_lab import (
+    batch_convert,
+    parse_subtitles,
+    render_srt,
+    render_vtt,
+    shift_cues,
+    summarize_cues,
+    validate_cues,
+)
 
 
 class SubtitleLabTests(unittest.TestCase):
@@ -85,6 +95,50 @@ Second
         )
 
         self.assertEqual(validate_cues(cues), [])
+
+    def test_batch_convert_preserves_nested_directories(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            input_dir = root / "input"
+            output_dir = root / "output"
+            nested = input_dir / "season-1"
+            nested.mkdir(parents=True)
+            (nested / "episode-1.srt").write_text(
+                "1\n00:00:01,000 --> 00:00:02,000\nHello\n",
+                encoding="utf-8",
+            )
+            (nested / "notes.txt").write_text("not a subtitle", encoding="utf-8")
+
+            converted = batch_convert(input_dir, output_dir, "vtt", recursive=True)
+
+            self.assertEqual(converted, 1)
+            output = output_dir / "season-1" / "episode-1.vtt"
+            self.assertTrue(output.exists())
+            self.assertIn("WEBVTT", output.read_text(encoding="utf-8"))
+
+    def test_summarize_cues(self):
+        cues = parse_subtitles(
+            """
+1
+00:00:01,000 --> 00:00:02,000
+First
+
+2
+00:00:03,000 --> 00:00:05,500
+Second
+"""
+        )
+
+        self.assertEqual(
+            summarize_cues(cues, "srt"),
+            {
+                "format": "srt",
+                "cue_count": 2,
+                "start": "00:00:01.000",
+                "end": "00:00:05.500",
+                "duration_ms": 4500,
+            },
+        )
 
 
 if __name__ == "__main__":
