@@ -10,6 +10,7 @@ API key.
 
 - Convert between `.srt` and `.vtt`
 - Shift cue timing forward or backward
+- Validate subtitle timing for overlaps and invalid ranges
 - Clean extra whitespace and normalize subtitle numbering
 - Run as a single Python file with no third-party dependencies
 
@@ -19,6 +20,7 @@ API key.
 python subtitle_lab.py clean examples/sample.srt -o cleaned.srt
 python subtitle_lab.py shift examples/sample.srt -o shifted.srt --seconds 1.5
 python subtitle_lab.py convert examples/sample.srt -o sample.vtt --to vtt
+python subtitle_lab.py validate examples/sample.srt
 ```
 
 ## Install as a CLI
@@ -29,6 +31,15 @@ subtitle-lab convert examples/sample.srt -o sample.vtt --to vtt
 ```
 
 ## Commands
+
+### Validate subtitles
+
+```bash
+python subtitle_lab.py validate input.srt
+```
+
+This checks that cues are present, each cue ends after it starts, and adjacent
+cues do not overlap.
 
 ### Clean subtitles
 
