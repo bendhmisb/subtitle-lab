@@ -11,6 +11,7 @@ API key.
 - Convert between `.srt` and `.vtt`
 - Shift cue timing forward or backward
 - Validate subtitle timing for overlaps and invalid ranges
+- Batch convert subtitle directories while preserving nested folders
 - Clean extra whitespace and normalize subtitle numbering
 - Run as a single Python file with no third-party dependencies
 
@@ -21,6 +22,7 @@ python subtitle_lab.py clean examples/sample.srt -o cleaned.srt
 python subtitle_lab.py shift examples/sample.srt -o shifted.srt --seconds 1.5
 python subtitle_lab.py convert examples/sample.srt -o sample.vtt --to vtt
 python subtitle_lab.py validate examples/sample.srt
+python subtitle_lab.py batch-convert examples -o converted --to vtt --recursive
 ```
 
 ## Install as a CLI
@@ -40,6 +42,15 @@ python subtitle_lab.py validate input.srt
 
 This checks that cues are present, each cue ends after it starts, and adjacent
 cues do not overlap.
+
+### Batch convert subtitles
+
+```bash
+python subtitle_lab.py batch-convert input_dir -o output_dir --to vtt --recursive
+```
+
+This scans a directory for `.srt` and `.vtt` files, converts each file to the
+target format, and preserves nested folder structure in the output directory.
 
 ### Clean subtitles
 
