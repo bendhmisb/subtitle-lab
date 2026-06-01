@@ -1,8 +1,6 @@
-import tempfile
 import unittest
-from pathlib import Path
 
-from subtitle_lab import parse_subtitles, render_srt, render_vtt, shift_cues
+from subtitle_lab import parse_subtitles, render_srt, render_vtt, shift_cues, validate_cues
 
 
 class SubtitleLabTests(unittest.TestCase):
@@ -57,6 +55,36 @@ Second cue
             render_srt(cues),
             "1\n00:00:03,000 --> 00:00:04,000\nSecond cue\n",
         )
+
+    def test_validate_detects_overlap(self):
+        cues = parse_subtitles(
+            """
+1
+00:00:01,000 --> 00:00:03,000
+First
+
+2
+00:00:02,500 --> 00:00:04,000
+Second
+"""
+        )
+
+        self.assertEqual(validate_cues(cues), ["Cue 2: overlaps with the previous cue."])
+
+    def test_validate_accepts_good_file(self):
+        cues = parse_subtitles(
+            """
+1
+00:00:01,000 --> 00:00:02,000
+First
+
+2
+00:00:02,500 --> 00:00:04,000
+Second
+"""
+        )
+
+        self.assertEqual(validate_cues(cues), [])
 
 
 if __name__ == "__main__":
