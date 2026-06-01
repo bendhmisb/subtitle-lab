@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+import json
 from pathlib import Path
 import re
 import sys
@@ -14,6 +15,7 @@ SRT_TIME_RE = re.compile(
     r"(?P<start>\d{1,2}:\d{2}:\d{2}[,.]\d{3})\s*-->\s*"
     r"(?P<end>\d{1,2}:\d{2}:\d{2}[,.]\d{3})(?P<settings>.*)"
 )
+SUPPORTED_EXTENSIONS = {".srt", ".vtt"}
 
 
 @dataclass
@@ -126,6 +128,27 @@ def validate_cues(cues: list[Cue]) -> list[str]:
     return issues
 
 
+def summarize_cues(cues: list[Cue], source_format: str) -> dict[str, int | str]:
+    if not cues:
+        return {
+            "format": source_format,
+            "cue_count": 0,
+            "start": "00:00:00.000",
+            "end": "00:00:00.000",
+            "duration_ms": 0,
+        }
+
+    first_start = min(cue.start_ms for cue in cues)
+    last_end = max(cue.end_ms for cue in cues)
+    return {
+        "format": source_format,
+        "cue_count": len(cues),
+        "start": format_timestamp(first_start, style="vtt"),
+        "end": format_timestamp(last_end, style="vtt"),
+        "duration_ms": max(0, last_end - first_start),
+    }
+
+
 def render_srt(cues: Iterable[Cue]) -> str:
     blocks: list[str] = []
     for index, cue in enumerate(cues, start=1):
@@ -169,6 +192,27 @@ def write_cues(path: Path, cues: list[Cue], output_format: str) -> None:
     path.write_text(rendered, encoding="utf-8")
 
 
+def iter_subtitle_files(root: Path, *, recursive: bool) -> Iterable[Path]:
+    pattern = "**/*" if recursive else "*"
+    for path in sorted(root.glob(pattern)):
+        if path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS:
+            yield path
+
+
+def batch_convert(
+    input_dir: Path, output_dir: Path, output_format: str, *, recursive: bool
+) -> int:
+    converted = 0
+    for input_path in iter_subtitle_files(input_dir, recursive=recursive):
+        cues, _source_format = load_cues(input_path)
+        relative_output = input_path.relative_to(input_dir).with_suffix(f".{output_format}")
+        output_path = output_dir / relative_output
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        write_cues(output_path, cues, output_format)
+        converted += 1
+    return converted
+
+
 def command_clean(args: argparse.Namespace) -> None:
     input_path = Path(args.input)
     cues, source_format = load_cues(input_path)
@@ -202,6 +246,36 @@ def command_validate(args: argparse.Namespace) -> None:
     print(f"OK: {len(cues)} subtitle cue(s) passed validation.")
 
 
+def command_info(args: argparse.Namespace) -> None:
+    input_path = Path(args.input)
+    cues, source_format = load_cues(input_path)
+    summary = summarize_cues(cues, source_format)
+
+    if args.json:
+        print(json.dumps(summary, indent=2))
+        return
+
+    print(f"Format: {summary['format']}")
+    print(f"Cues: {summary['cue_count']}")
+    print(f"Start: {summary['start']}")
+    print(f"End: {summary['end']}")
+    print(f"Duration: {summary['duration_ms']} ms")
+
+
+def command_batch_convert(args: argparse.Namespace) -> None:
+    input_dir = Path(args.input_dir)
+    if not input_dir.is_dir():
+        print(f"ERROR: input directory does not exist: {input_dir}", file=sys.stderr)
+        raise SystemExit(1)
+
+    count = batch_convert(input_dir, Path(args.output_dir), args.to, recursive=args.recursive)
+    if count == 0:
+        print("ERROR: no .srt or .vtt files were found.", file=sys.stderr)
+        raise SystemExit(1)
+
+    print(f"OK: converted {count} subtitle file(s).")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Clean, shift, and convert subtitles.")
     subparsers = parser.add_subparsers(required=True)
@@ -228,6 +302,22 @@ def build_parser() -> argparse.ArgumentParser:
     validate = subparsers.add_parser("validate", help="Validate subtitle timing.")
     validate.add_argument("input")
     validate.set_defaults(func=command_validate)
+
+    info = subparsers.add_parser("info", help="Print subtitle file summary.")
+    info.add_argument("input")
+    info.add_argument("--json", action="store_true", help="Output machine-readable JSON.")
+    info.set_defaults(func=command_info)
+
+    batch_convert_parser = subparsers.add_parser(
+        "batch-convert", help="Convert a directory of subtitle files."
+    )
+    batch_convert_parser.add_argument("input_dir")
+    batch_convert_parser.add_argument("-o", "--output-dir", required=True)
+    batch_convert_parser.add_argument("--to", choices=("srt", "vtt"), required=True)
+    batch_convert_parser.add_argument(
+        "--recursive", action="store_true", help="Scan nested directories."
+    )
+    batch_convert_parser.set_defaults(func=command_batch_convert)
 
     return parser
 
